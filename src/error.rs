@@ -1,0 +1,64 @@
+use actix_web::{HttpResponse, ResponseError};
+
+use crate::models;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("{0}")]
+    String(String),
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+    #[error(transparent)]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error(transparent)]
+    SerdeJsonError(#[from] serde_json::Error),
+    #[error(transparent)]
+    LettreTransportError(#[from] lettre::transport::smtp::Error),
+    #[error(transparent)]
+    LettreError(#[from] lettre::error::Error),
+    #[error(transparent)]
+    AddressError(#[from] lettre::address::AddressError),
+}
+
+impl From<&str> for Error {
+    fn from(e: &str) -> Self {
+        Self::String(e.to_string())
+    }
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Self::String(e)
+    }
+}
+
+impl ResponseError for Error {
+    fn error_response(&self) -> HttpResponse {
+        use Error::*;
+        match self {
+            Unauthorized(_) => HttpResponse::Unauthorized().json(models::Error::error(self)),
+            _ => {
+                tracing::error!(
+                    error = format!("{:?}", self).as_str(),
+                    "error occured when processing request"
+                );
+                HttpResponse::InternalServerError().json(models::Error::error(self))
+            }
+        }
+    }
+}
+
+impl models::Error {
+    fn message<S: ToString>(message: S) -> Self {
+        models::Error {
+            message: Some(message.to_string()),
+            ..Default::default()
+        }
+    }
+    fn error<S: ToString>(error: S) -> Self {
+        models::Error {
+            error: Some(error.to_string()),
+            ..Default::default()
+        }
+    }
+}

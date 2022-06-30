@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: FDK Mail Sender Service
+  description: API for sending mail
+  version: 0.1.0
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        error:
+          type: string
+    Mail:
+      type: object
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+      required:
+        - from
+        - to
+        - subject
+        - body
+
+paths:
+  /api/sendmail:
+    post:
+      summary: Send mail
+      security:
+        - apiKey: []
+      requestBody:
+        description: Mail
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Mail"
+      responses:
+        "200":
+          description: Ok
+          content: {}
+          headers: {}
+        "500":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          headers: {}
