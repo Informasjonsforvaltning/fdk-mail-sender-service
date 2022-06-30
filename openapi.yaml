@@ -38,14 +38,16 @@ components:
 paths:
   /api/sendmail:
     post:
+      summary: Send mail
+      security:
+        - apiKey: []
       requestBody:
-        description: Dataset uris
+        description: Mail
         required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/Mail"
-      summary: Send mail
       responses:
         "200":
           description: Ok
