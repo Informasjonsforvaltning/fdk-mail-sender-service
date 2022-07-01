@@ -53,7 +53,7 @@ async fn readyz() -> Result<impl Responder, Error> {
     Ok("ok")
 }
 
-fn send_mail(body: web::Bytes, state: web::Data<State>) -> Result<(), Error> {
+fn send_mail(body: web::Bytes, state: web::Data<State>) -> Result<&'static str, Error> {
     let mail = serde_json::from_str::<Mail>(from_utf8(&body)?)?;
     let from = mail.from.parse::<Mailbox>()?;
     if !state.allowlist.contains(&format!("{}", from.email)) {
@@ -82,7 +82,7 @@ fn send_mail(body: web::Bytes, state: web::Data<State>) -> Result<(), Error> {
         .body(mail.body)?;
 
     state.mailer.send(&message)?;
-    Ok(())
+    Ok("")
 }
 
 #[post("/api/sendmail")]
@@ -92,20 +92,7 @@ async fn sendmail(
     state: web::Data<State>,
 ) -> Result<impl Responder, Error> {
     validate_api_key(request)?;
-    match send_mail(body, state) {
-        Ok(_) => Ok(""),
-        Err(Error::LettreTransportError(e)) => {
-            tracing::error!(error = e.to_string().as_str(), "Unable to send mail");
-            Err(Error::LettreTransportError(e))
-        }
-        Err(e) => {
-            tracing::warn!(
-                error = e.to_string().as_str(),
-                "Error occured when handling request"
-            );
-            Err(e)
-        }
-    }
+    send_mail(body, state)
 }
 
 fn validate_api_key(request: HttpRequest) -> Result<(), Error> {
@@ -114,7 +101,7 @@ fn validate_api_key(request: HttpRequest) -> Result<(), Error> {
         .get("X-API-KEY")
         .ok_or(Error::Unauthorized("X-API-KEY header missing".to_string()))?
         .to_str()
-        .map_err(|_| Error::Unauthorized("invalid api key".to_string()))?;
+        .map_err(|_| Error::Unauthorized("Invalid api key".to_string()))?;
 
     if token == API_KEY.clone() {
         Ok(())
@@ -203,13 +190,19 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(move || {
         App::new()
-            .wrap(Logger::default())
+            .wrap(
+                Logger::default()
+                    .exclude("/livez".to_string())
+                    .exclude("/readyz".to_string())
+                    .log_target("http"),
+            )
             .app_data(web::Data::new(state.clone()))
             .service(livez)
             .service(readyz)
             .service(sendmail)
     })
     .bind(("0.0.0.0", 8080))?
+    .workers(4)
     .run()
     .await
 }
