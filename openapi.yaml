@@ -25,6 +25,10 @@ components:
           type: string
         to:
           type: string
+        cc:
+          type: string
+        bcc:
+          type: string
         subject:
           type: string
         body:
