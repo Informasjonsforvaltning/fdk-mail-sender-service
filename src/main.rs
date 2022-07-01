@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde;
 
-use std::{env, str::from_utf8};
+use std::{collections::HashSet, env, str::from_utf8};
 
 use actix_web::{get, middleware::Logger, post, web, App, HttpRequest, HttpServer, Responder};
 use lazy_static::lazy_static;
@@ -57,12 +57,18 @@ async fn readyz() -> Result<impl Responder, Error> {
 async fn mail(
     request: HttpRequest,
     body: web::Bytes,
-    mailer: web::Data<SmtpTransport>,
+    state: web::Data<State>,
 ) -> Result<impl Responder, Error> {
     validate_api_key(request)?;
 
     let mail = serde_json::from_str::<Mail>(from_utf8(&body)?)?;
     let from = mail.from.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+    if !state.allowlist.contains(&format!("{}", from.email)) {
+        return Err(Error::Unauthorized(format!(
+            "Not allowed to send from '{}'",
+            from.email
+        )));
+    }
     let to = mail.to.parse::<Mailbox>().map_err(|e| Error::from(e))?;
 
     let email = Message::builder()
@@ -72,7 +78,7 @@ async fn mail(
         .body(mail.body)
         .map_err(|e| Error::from(e))?;
 
-    mailer.send(&email).map_err(|e| Error::from(e))?;
+    state.mailer.send(&email).map_err(|e| Error::from(e))?;
     Ok("")
 }
 
@@ -89,6 +95,12 @@ fn validate_api_key(request: HttpRequest) -> Result<(), Error> {
     } else {
         Err(Error::Unauthorized("Incorrect api key".to_string()))
     }
+}
+
+#[derive(Clone)]
+struct State {
+    mailer: SmtpTransport,
+    allowlist: HashSet<String>,
 }
 
 #[actix_web::main]
@@ -153,10 +165,20 @@ async fn main() -> std::io::Result<()> {
     }
     let mailer = mail_builder.port(SMTP_PORT.clone()).build();
 
+    let allowlist = env::var("ALLOWED_SENDERS")
+        .map(|s| {
+            s.split(",")
+                .map(|part| part.to_string())
+                .collect::<HashSet<String>>()
+        })
+        .unwrap_or_default();
+    tracing::info!("Using allowlist {:?}", allowlist);
+    let state = State { mailer, allowlist };
+
     HttpServer::new(move || {
         App::new()
             .wrap(Logger::default())
-            .app_data(web::Data::new(mailer.clone()))
+            .app_data(web::Data::new(state.clone()))
             .service(livez)
             .service(readyz)
             .service(mail)
