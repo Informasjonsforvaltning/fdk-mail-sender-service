@@ -53,32 +53,25 @@ async fn readyz() -> Result<impl Responder, Error> {
     Ok("ok")
 }
 
-#[post("/api/sendmail")]
-async fn mail(
-    request: HttpRequest,
-    body: web::Bytes,
-    state: web::Data<State>,
-) -> Result<impl Responder, Error> {
-    validate_api_key(request)?;
-
+fn send_mail(body: web::Bytes, state: web::Data<State>) -> Result<(), Error> {
     let mail = serde_json::from_str::<Mail>(from_utf8(&body)?)?;
-    let from = mail.from.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+    let from = mail.from.parse::<Mailbox>()?;
     if !state.allowlist.contains(&format!("{}", from.email)) {
         return Err(Error::Unauthorized(format!(
             "Not allowed to send from '{}'",
             from.email
         )));
     }
-    let to = mail.to.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+    let to = mail.to.parse::<Mailbox>()?;
 
     let mut message_builder = Message::builder();
 
     if let Some(cc) = mail.cc {
-        let cc = cc.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+        let cc = cc.parse::<Mailbox>()?;
         message_builder = message_builder.cc(cc);
     }
     if let Some(bcc) = mail.bcc {
-        let bcc = bcc.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+        let bcc = bcc.parse::<Mailbox>()?;
         message_builder = message_builder.bcc(bcc);
     }
 
@@ -86,11 +79,33 @@ async fn mail(
         .from(from)
         .to(to)
         .subject(mail.subject)
-        .body(mail.body)
-        .map_err(|e| Error::from(e))?;
+        .body(mail.body)?;
 
-    state.mailer.send(&message).map_err(|e| Error::from(e))?;
-    Ok("")
+    state.mailer.send(&message)?;
+    Ok(())
+}
+
+#[post("/api/sendmail")]
+async fn sendmail(
+    request: HttpRequest,
+    body: web::Bytes,
+    state: web::Data<State>,
+) -> Result<impl Responder, Error> {
+    validate_api_key(request)?;
+    match send_mail(body, state) {
+        Ok(_) => Ok(""),
+        Err(Error::LettreTransportError(e)) => {
+            tracing::error!(error = e.to_string().as_str(), "Unable to send mail");
+            Err(Error::LettreTransportError(e))
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = e.to_string().as_str(),
+                "Error occured when handling request"
+            );
+            Err(e)
+        }
+    }
 }
 
 fn validate_api_key(request: HttpRequest) -> Result<(), Error> {
@@ -192,7 +207,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(state.clone()))
             .service(livez)
             .service(readyz)
-            .service(mail)
+            .service(sendmail)
     })
     .bind(("0.0.0.0", 8080))?
     .run()
