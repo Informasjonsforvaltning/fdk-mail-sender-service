@@ -35,15 +35,22 @@ impl From<String> for Error {
 impl ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
         use Error::*;
+
         match self {
-            Unauthorized(_) => HttpResponse::Unauthorized().json(models::Error::error(self)),
-            _ => {
-                tracing::error!(
-                    error = format!("{:?}", self).as_str(),
-                    "error occured when processing request"
-                );
-                HttpResponse::InternalServerError().json(models::Error::error(self))
+            LettreTransportError(e) => {
+                tracing::error!(error = e.to_string().as_str(), "Unable to send mail")
             }
+            e => {
+                tracing::warn!(
+                    error = e.to_string().as_str(),
+                    "Error occured when handling request"
+                )
+            }
+        };
+
+        match self {
+            Unauthorized(_) => HttpResponse::Unauthorized().json(models::Error::message(self)),
+            _ => HttpResponse::InternalServerError().json(models::Error::error(self)),
         }
     }
 }
