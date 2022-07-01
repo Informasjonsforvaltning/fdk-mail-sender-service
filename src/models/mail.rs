@@ -17,6 +17,10 @@ pub struct Mail {
     pub from: String,
     #[serde(rename = "to")]
     pub to: String,
+    #[serde(rename = "cc", skip_serializing_if = "Option::is_none")]
+    pub cc: Option<String>,
+    #[serde(rename = "bcc", skip_serializing_if = "Option::is_none")]
+    pub bcc: Option<String>,
     #[serde(rename = "subject")]
     pub subject: String,
     #[serde(rename = "body")]
@@ -28,6 +32,8 @@ impl Mail {
         Mail {
             from,
             to,
+            cc: None,
+            bcc: None,
             subject,
             body,
         }

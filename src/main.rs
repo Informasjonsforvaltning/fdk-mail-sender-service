@@ -71,14 +71,25 @@ async fn mail(
     }
     let to = mail.to.parse::<Mailbox>().map_err(|e| Error::from(e))?;
 
-    let email = Message::builder()
+    let mut message_builder = Message::builder();
+
+    if let Some(cc) = mail.cc {
+        let cc = cc.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+        message_builder = message_builder.cc(cc);
+    }
+    if let Some(bcc) = mail.bcc {
+        let bcc = bcc.parse::<Mailbox>().map_err(|e| Error::from(e))?;
+        message_builder = message_builder.bcc(bcc);
+    }
+
+    let message = message_builder
         .from(from)
         .to(to)
         .subject(mail.subject)
         .body(mail.body)
         .map_err(|e| Error::from(e))?;
 
-    state.mailer.send(&email).map_err(|e| Error::from(e))?;
+    state.mailer.send(&message).map_err(|e| Error::from(e))?;
     Ok("")
 }
 
