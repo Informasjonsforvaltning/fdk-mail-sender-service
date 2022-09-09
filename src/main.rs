@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde;
 
-use std::{collections::HashSet, env, str::from_utf8};
+use std::{collections::HashSet, env, str::from_utf8, time::Instant};
 
 use actix_web::{get, middleware::Logger, post, web, App, HttpRequest, HttpServer, Responder};
 use lazy_static::lazy_static;
@@ -15,10 +15,17 @@ use lettre::{
     Message, SmtpTransport, Transport,
 };
 
-use crate::{error::Error, mailtest::init_mailtest, models::Mail};
+use crate::{
+    error::Error,
+    mailtest::init_mailtest,
+    metrics::{get_metrics, register_metrics},
+    metrics::{PROCESSED_MAIL_REQUESTS, PROCESSING_TIME},
+    models::Mail,
+};
 
 mod error;
 mod mailtest;
+mod metrics;
 #[allow(dead_code, non_snake_case)]
 mod models;
 
@@ -52,6 +59,17 @@ async fn livez() -> Result<impl Responder, Error> {
 #[get("/readyz")]
 async fn readyz() -> Result<impl Responder, Error> {
     Ok("ok")
+}
+
+#[get("/metrics")]
+async fn metrics_endpoint() -> impl Responder {
+    match get_metrics() {
+        Ok(metrics) => metrics,
+        Err(e) => {
+            tracing::error!(error = e.to_string(), "unable to gather metrics");
+            "".to_string()
+        }
+    }
 }
 
 fn send_mail(body: web::Bytes, state: web::Data<State>) -> Result<&'static str, Error> {
@@ -93,7 +111,24 @@ async fn sendmail(
     state: web::Data<State>,
 ) -> Result<impl Responder, Error> {
     validate_api_key(request)?;
-    send_mail(body, state)
+
+    let start_time = Instant::now();
+    let result = send_mail(body, state);
+    let elapsed_millis = start_time.elapsed().as_millis();
+    PROCESSING_TIME.observe(elapsed_millis as f64 / 1000.0);
+
+    match result {
+        Ok(ok) => {
+            PROCESSED_MAIL_REQUESTS
+                .with_label_values(&["success"])
+                .inc();
+            Ok(ok)
+        }
+        Err(e) => {
+            PROCESSED_MAIL_REQUESTS.with_label_values(&["error"]).inc();
+            Err(e)
+        }
+    }
 }
 
 fn validate_api_key(request: HttpRequest) -> Result<(), Error> {
@@ -125,6 +160,8 @@ async fn main() -> std::io::Result<()> {
         .with_target(false)
         .with_current_span(false)
         .init();
+
+    register_metrics();
 
     // Fail if API_KEY missing
     let _ = API_KEY.clone();
