@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4.1.0"
+cronjob = "0.4.17"
 lazy_static = "1.4.0"
 lettre = "0.10.0-rc.7"
 serde = { version = "1.0.137", features = ["derive"] }

@@ -15,9 +15,10 @@ use lettre::{
     Message, SmtpTransport, Transport,
 };
 
-use crate::{error::Error, models::Mail};
+use crate::{error::Error, mailtest::init_mailtest, models::Mail};
 
 mod error;
+mod mailtest;
 #[allow(dead_code, non_snake_case)]
 mod models;
 
@@ -176,7 +177,7 @@ async fn main() -> std::io::Result<()> {
             std::process::exit(1);
         }
     }
-    let mailer = mail_builder.port(SMTP_PORT.clone()).build();
+    let mailer = mail_builder.build();
 
     let allowlist = env::var("ALLOWED_SENDERS")
         .map(|s| {
@@ -186,6 +187,9 @@ async fn main() -> std::io::Result<()> {
         })
         .unwrap_or_default();
     tracing::info!("Using allowlist {:?}", allowlist);
+
+    init_mailtest(mailer.clone());
+
     let state = State { mailer, allowlist };
 
     HttpServer::new(move || {
