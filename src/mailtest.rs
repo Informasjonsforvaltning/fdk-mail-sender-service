@@ -5,8 +5,10 @@ use lettre::SmtpTransport;
 
 pub fn init_mailtest(mailer: SmtpTransport) {
     let mut cron = CronJob::new("mailtest", test_mail(mailer));
-    cron.minutes("1");
-    cron.start_job();
+    cron.minutes("*");
+    cron.seconds("0");
+    tracing::info!("starting mailtester");
+    CronJob::start_job_threaded(cron);
 }
 
 fn test_mail(mailer: SmtpTransport) -> impl Fn(&str) -> () {
