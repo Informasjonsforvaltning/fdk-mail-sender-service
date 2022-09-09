@@ -16,6 +16,13 @@ lazy_static! {
         );
         std::process::exit(1);
     });
+    pub static ref MAIL_TESTS: IntCounterVec =
+        IntCounterVec::new(Opts::new("mail_tests", "Mail Tests"), &["status"]).unwrap_or_else(
+            |e| {
+                tracing::error!(error = e.to_string(), "mail_tests metric error");
+                std::process::exit(1);
+            }
+        );
     pub static ref PROCESSING_TIME: Histogram = Histogram::with_opts(HistogramOpts {
         common_opts: Opts::new("processing_time", "Mail Processing Times"),
         buckets: vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 100.0],
@@ -34,6 +41,13 @@ pub fn register_metrics() {
                 error = e.to_string(),
                 "processed_mail_requests collector error"
             );
+            std::process::exit(1);
+        });
+
+    REGISTRY
+        .register(Box::new(MAIL_TESTS.clone()))
+        .unwrap_or_else(|e| {
+            tracing::error!(error = e.to_string(), "mail_tests collector error");
             std::process::exit(1);
         });
 

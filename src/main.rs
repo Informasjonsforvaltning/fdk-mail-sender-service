@@ -240,6 +240,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(state.clone()))
             .service(livez)
             .service(readyz)
+            .service(metrics_endpoint)
             .service(sendmail)
     })
     .bind(("0.0.0.0", 8080))?
