@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use prometheus::{Encoder, Histogram, HistogramOpts, IntCounterVec, Opts, Registry};
+use prometheus::{Encoder, Histogram, HistogramOpts, IntCounterVec, IntGaugeVec, Opts, Registry};
 
 use crate::error::Error;
 
@@ -16,12 +16,11 @@ lazy_static! {
         );
         std::process::exit(1);
     });
-    pub static ref MAIL_TEST_COUNT: IntCounterVec =
-        IntCounterVec::new(Opts::new("mail_test_count", "Mail Test Count"), &["status"])
-            .unwrap_or_else(|e| {
-                tracing::error!(error = e.to_string(), "mail_test_count metric error");
-                std::process::exit(1);
-            });
+    pub static ref UP_METRIC: IntGaugeVec =
+        IntGaugeVec::new(Opts::new("up", "Service is up"), &["service"]).unwrap_or_else(|e| {
+            tracing::error!(error = e.to_string(), "up metric error");
+            std::process::exit(1);
+        });
     pub static ref PROCESSING_TIME: Histogram = Histogram::with_opts(HistogramOpts {
         common_opts: Opts::new("processing_time", "Mail Processing Times"),
         buckets: vec![0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 100.0],
@@ -44,9 +43,9 @@ pub fn register_metrics() {
         });
 
     REGISTRY
-        .register(Box::new(MAIL_TEST_COUNT.clone()))
+        .register(Box::new(UP_METRIC.clone()))
         .unwrap_or_else(|e| {
-            tracing::error!(error = e.to_string(), "mail_test_count collector error");
+            tracing::error!(error = e.to_string(), "up collector error");
             std::process::exit(1);
         });
 
