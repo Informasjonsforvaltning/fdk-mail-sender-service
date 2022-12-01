@@ -1,4 +1,4 @@
-FROM rust:1.63 AS builder
+FROM rust:1.64 AS builder
 
 WORKDIR /build
 
@@ -9,7 +9,7 @@ COPY ./ ./
 RUN cargo build --release
 
 
-FROM rust:1.63
+FROM rust:1.64
 
 ENV TZ=Europe/Oslo
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
