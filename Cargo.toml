@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-actix-web = "4.1.0"
+actix-web = "4.3.0"
 cronjob = "0.4.17"
 lazy_static = "1.4.0"
-lettre = "0.10.0-rc.7"
-prometheus = "0.13.2"
-serde = { version = "1.0.137", features = ["derive"] }
-serde_json = "1.0.81"
-thiserror = "1.0.31"
-tracing = "0.1"
-tracing-subscriber = "0.2"
+lettre = "0.10.1"
+prometheus = "0.13.3"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.91"
+thiserror = "1.0.38"
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.15", features = ["fmt", "json"] }
