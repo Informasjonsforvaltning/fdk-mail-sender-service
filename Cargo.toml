@@ -9,7 +9,7 @@ cronjob = "0.4.17"
 lazy_static = "1.4.0"
 lettre = "0.10.1"
 prometheus = "0.13.3"
-serde = { version = "1.0.152", features = ["derive"] }
+serde = { version = "1.0.155", features = ["derive"] }
 serde_json = "1.0.91"
 thiserror = "1.0.38"
 tracing = "0.1.37"
