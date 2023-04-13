@@ -10,7 +10,7 @@ lazy_static = "1.4.0"
 lettre = "0.10.4"
 prometheus = "0.13.3"
 serde = { version = "1.0.160", features = ["derive"] }
-serde_json = "1.0.95"
+serde_json = "1.0.96"
 thiserror = "1.0.40"
 tracing = "0.1.37"
 tracing-subscriber = { version = "0.3.16", features = ["fmt", "json"] }
