@@ -9,12 +9,10 @@ use lettre::{
     message::Mailbox,
     transport::smtp::{
         authentication::Credentials,
-        client::{Certificate, Tls, TlsParameters},
         extension::ClientId,
     },
     Message, SmtpTransport, Transport,
 };
-
 use crate::{
     error::Error,
     mailtest::init_mailtest,
@@ -167,28 +165,8 @@ async fn main() -> std::io::Result<()> {
     let _ = API_KEY.clone();
 
     let mut mail_builder = match (TLS_CERT.clone(), TLS_DOMAIN.clone()) {
-        (None, None) => SmtpTransport::starttls_relay(SMTP_HOST.as_str()).unwrap_or_else(|e| {
-            tracing::error!(error = e.to_string().as_str(), "TLS error");
-            std::process::exit(1);
-        }),
-        (Some(tls_cert), Some(tls_domain)) => {
-            tracing::info!("Using specific cert with domain '{}'", tls_domain);
-
-            let certificate = Certificate::from_pem(&tls_cert.as_bytes()).unwrap_or_else(|e| {
-                tracing::error!(error = e.to_string().as_str(), "Certificate error");
-                std::process::exit(1);
-            });
-            let tls = TlsParameters::builder(tls_domain)
-                .add_root_certificate(certificate)
-                .build()
-                .unwrap_or_else(|e| {
-                    tracing::error!(error = e.to_string().as_str(), "TLS error");
-                    std::process::exit(1);
-                });
-
-            // builder_dangerous - as we need to customize TLS certificate
-            SmtpTransport::builder_dangerous(SMTP_HOST.clone()).tls(Tls::Required(tls))
-        }
+        (None, None) => SmtpTransport::builder_dangerous(SMTP_HOST.as_str()),
+        (Some(_), Some(_)) => SmtpTransport::builder_dangerous(SMTP_HOST.as_str()),
         _ => {
             tracing::error!("Either both or none of TLS_CERT and TLS_DOMAIN must be configured");
             std::process::exit(1);
