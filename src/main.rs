@@ -3,8 +3,8 @@ use std::sync::Arc;
 use actix_web::HttpServer;
 
 use fdk_mail_sender_service::{
-    create_app, mailer::MailSender, mailtest::init_mailtest, metrics::register_metrics, AppConfig,
-    State,
+    create_app, mail_health::init_mail_health, mailer::MailSender, metrics::register_metrics,
+    AppConfig, State,
 };
 
 #[actix_web::main]
@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("Using allowlist {:?}", config.allowlist);
 
     let mailer: Arc<dyn MailSender> = Arc::new(mailer);
-    init_mailtest(mailer.clone());
+    init_mail_health(mailer.clone());
 
     let state = State {
         mailer,
