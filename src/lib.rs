@@ -27,6 +27,9 @@ pub mod models;
 pub use config::AppConfig;
 pub use mailer::MailSender;
 
+#[cfg(test)]
+mod app_tests;
+
 /// Parse `ALLOWED_SENDERS` CSV. Preserves surrounding whitespace on each part.
 pub fn parse_allowlist(raw: &str) -> HashSet<String> {
     raw.split(',').map(|part| part.to_string()).collect()
