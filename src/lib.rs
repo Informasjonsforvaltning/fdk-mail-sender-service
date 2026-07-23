@@ -158,3 +158,75 @@ pub fn validate_api_key(request: &HttpRequest, api_key: &str) -> Result<(), Erro
         Err(Error::Unauthorized("Incorrect api key".to_string()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use actix_web::{http::header::HeaderValue, test::TestRequest};
+
+    use super::*;
+    use crate::error::Error;
+
+    #[test]
+    fn parse_allowlist_empty_string_yields_empty_entry() {
+        let allowlist = parse_allowlist("");
+        assert_eq!(allowlist.len(), 1);
+        assert!(allowlist.contains(""));
+    }
+
+    #[test]
+    fn parse_allowlist_single_sender() {
+        let allowlist = parse_allowlist("a@example.com");
+        assert_eq!(allowlist, HashSet::from(["a@example.com".to_string()]));
+    }
+
+    #[test]
+    fn parse_allowlist_comma_separated() {
+        let allowlist = parse_allowlist("a@example.com,b@example.com");
+        assert_eq!(
+            allowlist,
+            HashSet::from(["a@example.com".to_string(), "b@example.com".to_string()])
+        );
+    }
+
+    #[test]
+    fn parse_allowlist_preserves_whitespace() {
+        // Current behavior: no trim — spaces after commas become part of the entry.
+        let allowlist = parse_allowlist("a@example.com, b@example.com");
+        assert!(allowlist.contains("a@example.com"));
+        assert!(allowlist.contains(" b@example.com"));
+        assert!(!allowlist.contains("b@example.com"));
+    }
+
+    #[test]
+    fn validate_api_key_missing_header() {
+        let request = TestRequest::default().to_http_request();
+        let err = validate_api_key(&request, "secret").unwrap_err();
+        assert!(matches!(err, Error::Unauthorized(ref m) if m.contains("missing")));
+    }
+
+    #[test]
+    fn validate_api_key_invalid_utf8() {
+        let request = TestRequest::default()
+            .insert_header(("X-API-KEY", HeaderValue::from_bytes(&[0xff]).unwrap()))
+            .to_http_request();
+        let err = validate_api_key(&request, "secret").unwrap_err();
+        assert!(matches!(err, Error::Unauthorized(ref m) if m.contains("Invalid")));
+    }
+
+    #[test]
+    fn validate_api_key_incorrect() {
+        let request = TestRequest::default()
+            .insert_header(("X-API-KEY", "wrong"))
+            .to_http_request();
+        let err = validate_api_key(&request, "secret").unwrap_err();
+        assert!(matches!(err, Error::Unauthorized(ref m) if m.contains("Incorrect")));
+    }
+
+    #[test]
+    fn validate_api_key_matching() {
+        let request = TestRequest::default()
+            .insert_header(("X-API-KEY", "secret"))
+            .to_http_request();
+        assert!(validate_api_key(&request, "secret").is_ok());
+    }
+}
