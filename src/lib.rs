@@ -19,7 +19,7 @@ use crate::{
 pub mod config;
 pub mod error;
 pub mod mailer;
-pub mod mailtest;
+pub mod mail_health;
 pub mod metrics;
 #[allow(dead_code, non_snake_case)]
 pub mod models;
