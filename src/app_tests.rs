@@ -14,7 +14,7 @@ use crate::{
     error::Error,
     mailer::MailSender,
     metrics::{register_metrics, PROCESSED_MAIL_REQUESTS, PROCESSING_TIME, UP_METRIC},
-    models, State,
+    models, parse_allowlist, State,
 };
 
 const API_KEY: &str = "test-api-key";
@@ -220,6 +220,37 @@ async fn sendmail_with_cc_and_bcc() {
         .collect();
     assert!(envelope_recipients.iter().any(|a| a == "bcc@example.com"));
     assert!(envelope_recipients.iter().any(|a| a == "cc@example.com"));
+}
+
+#[actix_web::test]
+async fn sendmail_accepts_trimmed_allowlist_entries() {
+    let _guard = test_lock();
+    let mailer = Arc::new(RecordingMailer::new());
+    let state = State {
+        mailer: mailer.clone(),
+        allowlist: parse_allowlist(" allowed@example.com , other@example.com "),
+        api_key: API_KEY.to_string(),
+    };
+    let app = init_service(create_app(state)).await;
+
+    for from in ["allowed@example.com", "other@example.com"] {
+        let mut body = valid_mail_json();
+        body["from"] = serde_json::json!(from);
+
+        let response = call_service(
+            &app,
+            TestRequest::post()
+                .uri("/api/sendmail")
+                .insert_header(("X-API-KEY", API_KEY))
+                .set_json(body)
+                .to_request(),
+        )
+        .await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    assert_eq!(mailer.sent().len(), 2);
 }
 
 #[actix_web::test]

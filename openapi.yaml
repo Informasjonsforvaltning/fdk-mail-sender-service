@@ -57,6 +57,13 @@ paths:
           description: Ok
           content: {}
           headers: {}
+        "401":
+          description: Unauthorized — missing/invalid API key or sender not allowlisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          headers: {}
         "500":
           description: Error
           content:

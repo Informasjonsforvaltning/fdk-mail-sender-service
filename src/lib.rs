@@ -30,9 +30,13 @@ pub use mailer::MailSender;
 #[cfg(test)]
 mod app_tests;
 
-/// Parse `ALLOWED_SENDERS` CSV. Preserves surrounding whitespace on each part.
+/// Parse `ALLOWED_SENDERS` CSV. Trims each entry and drops empties.
+/// An empty result (missing/blank env) means deny-all.
 pub fn parse_allowlist(raw: &str) -> HashSet<String> {
-    raw.split(',').map(|part| part.to_string()).collect()
+    raw.split(',')
+        .map(|part| part.trim().to_string())
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 #[derive(Clone)]
@@ -170,10 +174,9 @@ mod tests {
     use crate::error::Error;
 
     #[test]
-    fn parse_allowlist_empty_string_yields_empty_entry() {
+    fn parse_allowlist_empty_string_is_deny_all() {
         let allowlist = parse_allowlist("");
-        assert_eq!(allowlist.len(), 1);
-        assert!(allowlist.contains(""));
+        assert!(allowlist.is_empty());
     }
 
     #[test]
@@ -192,12 +195,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_allowlist_preserves_whitespace() {
-        // Current behavior: no trim — spaces after commas become part of the entry.
-        let allowlist = parse_allowlist("a@example.com, b@example.com");
-        assert!(allowlist.contains("a@example.com"));
-        assert!(allowlist.contains(" b@example.com"));
-        assert!(!allowlist.contains("b@example.com"));
+    fn parse_allowlist_trims_whitespace_and_drops_empty_segments() {
+        let allowlist = parse_allowlist(" a@example.com , b@example.com , ,");
+        assert_eq!(
+            allowlist,
+            HashSet::from(["a@example.com".to_string(), "b@example.com".to_string()])
+        );
     }
 
     #[test]
