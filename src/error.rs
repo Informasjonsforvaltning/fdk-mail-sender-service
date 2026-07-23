@@ -69,3 +69,50 @@ impl models::Error {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use actix_web::{body::to_bytes, http::StatusCode, ResponseError};
+
+    use super::*;
+
+    async fn response_json(err: &Error) -> (StatusCode, models::Error) {
+        let response = err.error_response();
+        let status = response.status();
+        let body = to_bytes(response.into_body()).await.unwrap();
+        let json: models::Error = serde_json::from_slice(&body).unwrap();
+        (status, json)
+    }
+
+    #[actix_web::test]
+    async fn unauthorized_returns_401_with_message() {
+        let err = Error::Unauthorized("X-API-KEY header missing".to_string());
+        let (status, json) = response_json(&err).await;
+
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert!(json.message.is_some());
+        assert!(json.message.unwrap().contains("Unauthorized"));
+        assert!(json.error.is_none());
+    }
+
+    #[actix_web::test]
+    async fn string_error_returns_500_with_error_field() {
+        let err = Error::String("boom".to_string());
+        let (status, json) = response_json(&err).await;
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(json.error.as_deref(), Some("boom"));
+        assert!(json.message.is_none());
+    }
+
+    #[actix_web::test]
+    async fn serde_json_error_returns_500_with_error_field() {
+        let serde_err = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
+        let err = Error::from(serde_err);
+        let (status, json) = response_json(&err).await;
+
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(json.error.is_some());
+        assert!(json.message.is_none());
+    }
+}
