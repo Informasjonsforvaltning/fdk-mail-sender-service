@@ -11,7 +11,7 @@ pub fn check_mailserver(mailer: &dyn MailSender) {
     match mailer.test_connection() {
         Ok(_) => {
             UP_METRIC.with_label_values(&["mailserver"]).set(1);
-            tracing::info!("mailserver responding successfully")
+            tracing::debug!("mailserver responding successfully")
         }
         Err(e) => {
             UP_METRIC.with_label_values(&["mailserver"]).set(0);
