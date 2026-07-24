@@ -62,6 +62,7 @@ pub fn create_app(
             Logger::default()
                 .exclude("/livez".to_string())
                 .exclude("/readyz".to_string())
+                .exclude("/metrics".to_string())
                 .log_target("http"),
         )
         .app_data(web::Data::new(state))
