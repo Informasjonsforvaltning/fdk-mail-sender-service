@@ -12,7 +12,10 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 
 ENV TZ=Europe/Oslo
-RUN apt-get update && apt-get install -y libssl3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libssl3 \
+    && apt-get install -y --no-install-recommends --only-upgrade perl-base \
+    && rm -rf /var/lib/apt/lists/*
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 COPY --from=builder /build/target/release/fdk-mail-sender-service /fdk-mail-sender-service
